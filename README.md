@@ -15,3 +15,6 @@ Para pausar pressione a tecla enter.
 
 ## Dica
 Utilize a resolução 1920x1080 para uma melhor experiência!
+
+## Agradecimento
+Obrigada Nathalia por fazer todo o layout da resolução 1920x1080.
