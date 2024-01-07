@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Jogo de Nave</title>
+            <script src="fundo.js"></script>	<script src="teclado.js"></script>	<script src="painel.js"></script>
+            <script src="tiro.js"></script>		<script src="explosao.js"></script>	
+            <script src="ovni.js"></script>  	<script src="spritesheet.js"></script>	 <script src="animacao.js"></script>
+            <script src="colisor.js"></script> 	<script src="nave.js"></script>		
+        
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            canvas {
+                margin-bottom: 55px;
+            }
+
+            #link_jogar {
+                /* Inicia oculto */
+                display: none;
+                color: yellow;
+                background: url(imagens/botao-jogar.png);
+                font-size: 20px;
+                font-family: sans-serif;
+                text-decoration: none;
+                text-shadow: 2px 2px 5px black;
+                position: absolute;
+                margin-top: 90px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 52px;
+                height: 26px;
+                padding: 23px 10px;
+                z-index: 20;
+            }
+
+            img.responsive {
+                height: auto;
+                width: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                margin-left: auto;
+                margin-right: auto;
+                z-index: 1;
+            }
+
+            p {
+                font-family: 'Arial', sans-serif;
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 16px 8px;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <a id="link_jogar" href="javascript: iniciarJogo()">Jogar</a>
+        <div>
+            <canvas id="canvas_animacao" width="500" height="500"></canvas>
+            <p id="msgResolucao">Utilize a resolução 1920x1080 para uma surpresa!<br/>Dica: tente utilizar tela cheia! (F11)</p>
+        </div>
+        <img src="imagens/fliper.png" alt="Fliperama" class="responsive" id="fliper">
+        <img src="imagens/button1.png" alt="Botão 1" class="responsive" id="button1">
+        <img src="imagens/button2.png" alt="Botão 2" class="responsive" id="button2">
+        <img src="imagens/joystick.png" alt="Joystick" class="responsive" id="joystick">
+        <script>
+            const checkWindowSize = () => {
+                if(window.innerWidth != 1920 || window.innerHeight != 1080) {
+                    let components = document.querySelectorAll('.responsive');
+                    components.forEach((component) => {
+                        component.style.display = "none";
+                    });
+                    document.querySelector('#msgResolucao').style.display = "block";
+                }
+                else {
+                    let components = document.querySelectorAll('.responsive');
+                    components.forEach((component) => {
+                        component.style.display = "block";
+                    });    
+                    document.querySelector('#msgResolucao').style.display = "none";
+                }
+
+            }
+
+            checkWindowSize();
+            window.onresize = function(e) {
+                checkWindowSize();
+            }
+
+            // Canvas e Context
+            var canvas = document.getElementById('canvas_animacao');
+            var context = canvas.getContext('2d');
+
+            // Variáveis principais
+            var imagens, animacao, teclado, colisor, nave, criadorInimigos;
+            var totalImagens = 0, carregadas = 0;
+            var musicaAcao;
+
+            document.onkeydown = function(e) {
+                var keypress;
+
+                if (window.event) {
+                    keypress = e.keyCode;
+                }
+
+                if (keypress == 32) {
+                    document.getElementById("button1").setAttribute("src", "imagens/button1_pressed.png");
+                }
+
+                if (keypress == 13) {
+                    document.getElementById("button2").setAttribute("src", "imagens/button2_pressed.png");
+                }
+
+                if (keypress == 38 || keypress == 87) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick_front.png");
+                }
+
+                if (keypress == 40 || keypress == 83) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick_back.png");
+                }
+
+                if (keypress == 37 || keypress == 65) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick_left.png");
+                }
+
+                if (keypress == 39 || keypress == 68) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick_right.png");
+                }
+            }
+
+            document.onkeyup = function(e) {
+                var keypress;
+
+                if (window.event) {
+                    keypress = e.keyCode;
+                }
+
+                if (keypress == 32) {
+                    document.getElementById("button1").setAttribute("src", "imagens/button1.png");
+                }
+
+                if (keypress == 13) {
+                    document.getElementById("button2").setAttribute("src", "imagens/button2.png");
+                }
+
+                if (keypress == 38 || keypress == 87) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick.png");
+                }
+
+                if (keypress == 40 || keypress == 83) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick.png");
+                }
+
+                if (keypress == 37 || keypress == 65) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick.png");
+                }
+
+                if (keypress == 39 || keypress == 68) {
+                    document.getElementById("joystick").setAttribute("src", "imagens/joystick.png");
+                }
+            }
+            
+            // Começa carregando as imagens e músicas
+            carregarImagens();
+            carregarMusicas();
+            
+            function carregarImagens() {
+                // Objeto contendo os nomes das imagens
+                imagens = {
+                    espaco:   'fundo-espaco.png', 
+                    estrelas: 'fundo-estrelas.png', 
+                    nuvens:   'fundo-nuvens.png', 
+                    nave:     'nave-spritesheet.png', 
+                    ovni:     'ovni.png',
+                    explosao: 'explosao.png'
+                };
+                
+                // Carregar todas imagens
+                for (var i in imagens) {
+                    var img = new Image();
+                    img.src = 'imagens/' + imagens[i];
+                    img.onload = carregando;
+                    totalImagens++;
+                    
+                    // Substituir o nome pela imagem
+                    imagens[i] = img;
+                }
+            }
+            
+            function carregarMusicas() {
+                musicaAcao = new Audio();
+                musicaAcao.src = 'sons/musica-acao.mp3';
+                musicaAcao.load();
+                musicaAcao.volume = 0.2;
+                musicaAcao.loop = true;
+            }
+            
+            function carregando() 
+            {
+                context.save();
+                
+                // Fundo 
+                context.drawImage(imagens.espaco, 0, 0, canvas.width, canvas.height);
+                
+                // Texto "Carregando"
+                context.fillStyle = 'rgba(255, 165, 0, 0.7)';
+                context.font = '49px Arial'
+                context.fillText("Carregando...", 100, 200);
+                
+                // Barra de loading
+                carregadas++;
+                var tamanhoTotal = 300;
+                var tamanho = carregadas / totalImagens * tamanhoTotal;
+                context.fillStyle = 'rgba(255,255,255,0.7)';
+                context.fillRect(100, 250, tamanho, 50);
+                
+                context.restore();         
+                
+                if (carregadas == totalImagens) {
+                    iniciarObjetos();
+                    mostrarLinkJogar();
+                }
+            }
+            function iniciarObjetos() {
+                // Objetos principais
+                animacao = new Animacao(context);
+                teclado = new Teclado(document);
+                colisor = new Colisor();
+                espaco = new Fundo(context, imagens.espaco);
+                estrelas = new Fundo(context, imagens.estrelas);
+                nuvens = new Fundo(context, imagens.nuvens);
+                nave = new Nave(context, teclado, imagens.nave, 
+                                imagens.explosao);
+                painel = new Painel(context, nave);
+                
+                // Ligações entre objetos
+                animacao.novoSprite(espaco);
+                animacao.novoSprite(estrelas);
+                animacao.novoSprite(nuvens);
+                animacao.novoSprite(painel);
+                animacao.novoSprite(nave);
+                
+                colisor.novoSprite(nave);
+                animacao.novoProcessamento(colisor);
+                
+                configuracoesIniciais();
+            }
+            
+            function configuracoesIniciais() {
+                // Fundos
+                espaco.velocidade = 60;
+                estrelas.velocidade = 150;
+                nuvens.velocidade = 500;
+                
+                // Nave
+                nave.posicionar();
+                nave.velocidade = 200;
+                
+                // Inimigos
+                criacaoInimigos();
+                
+                // Game Over
+                nave.acabaramVidas = function() {
+                    animacao.desligar();
+                    gameOver();
+                }
+                
+                // Pontuação
+                colisor.aoColidir = function(o1, o2) {
+                    // Tiro com Ovni
+                    if ( (o1 instanceof Tiro && o2 instanceof Ovni) ||
+                        (o1 instanceof Ovni && o2 instanceof Tiro) )
+                    painel.pontuacao += 10;
+                }
+            }
+            
+            function criacaoInimigos() {
+                criadorInimigos = {
+                    ultimoOvni: new Date().getTime(),
+                    
+                    processar: function() {
+                    var agora = new Date().getTime();
+                    var decorrido = agora - this.ultimoOvni;
+                    
+                    if (decorrido > 1000) {
+                        novoOvni();
+                        this.ultimoOvni = agora;
+                    }
+                    }
+                };
+                
+                animacao.novoProcessamento(criadorInimigos);
+            }
+            
+            function novoOvni() {
+                var imgOvni = imagens.ovni;
+                var ovni = new Ovni(context, imgOvni, imagens.explosao);
+
+                // Mínimo: 500; máximo: 1000
+                ovni.velocidade = 
+                    Math.floor( 500 + Math.random() * (1000 - 500 + 1) );
+                
+                // Mínimo: 0; máximo: largura do canvas - largura do ovni   
+                ovni.x = 
+                    Math.floor(Math.random() * 
+                            (canvas.width - imgOvni.width + 1) );
+                        
+                // Descontar a altura
+                ovni.y = -imgOvni.height;
+                
+                animacao.novoSprite(ovni);
+                colisor.novoSprite(ovni);
+            }
+            
+            function pausarJogo() {
+                if (animacao.ligado) {
+                    animacao.desligar();
+                    ativarTiro(false);
+                    context.save();
+                    context.fillStyle = 'white';
+                    context.strokeStyle = 'black';
+                    context.font = '50px sans-serif';
+                    context.fillText("Pausado", 160, 200);
+                    context.strokeText("Pausado", 160, 200);
+                    context.restore();
+                }
+                else {
+                    criadorInimigos.ultimoOvni = new Date().getTime();
+                    animacao.ligar();
+                    ativarTiro(true);
+                }
+            }
+            
+            function ativarTiro(ativar) {
+                if (ativar) {
+                    teclado.disparou(ESPACO, function() {
+                    nave.atirar();
+                    });
+                }
+                else
+                    teclado.disparou(ESPACO, null);
+            }
+            
+            
+            
+            function mostrarLinkJogar() {
+                document.getElementById('link_jogar').style.display =
+                    'block';
+            }
+            
+            function iniciarJogo() {
+                criadorInimigos.ultimoOvni = new Date().getTime();
+                
+                // Tiro
+                ativarTiro(true);
+                
+                // Pausa
+                teclado.disparou(ENTER, pausarJogo);
+                
+                document.getElementById('link_jogar').style.display =
+                    'none';
+                
+                painel.pontuacao = 0;
+                musicaAcao.play();
+                animacao.ligar();
+            }
+            
+            function gameOver() {
+                // Tiro
+                ativarTiro(false);
+                
+                // Pausa
+                teclado.disparou(ENTER, null);
+                
+                // Parar a música e rebobinar
+                musicaAcao.pause();
+                musicaAcao.currentTime = 0.0;
+                
+                // Fundo
+                context.drawImage(imagens.espaco, 0, 0, canvas.width,
+                                canvas.height);
+                
+                // Texto "Game Over"
+                context.save();
+                context.fillStyle = 'white';
+                context.strokeStyle = 'black';
+                context.font = '70px sans-serif';
+                context.fillText("GAME OVER", 40, 200);
+                context.strokeText("GAME OVER", 40, 200);
+                context.restore();
+                
+                // Volta o link "Jogar"
+                mostrarLinkJogar();
+                
+                // Restaurar as condições da nave
+                nave.vidasExtras = 3;
+                nave.posicionar();
+                animacao.novoSprite(nave);
+                colisor.novoSprite(nave);
+                
+                // Tirar todos os inimigos da tela
+                removerInimigos();
+            }
+            
+            function removerInimigos() {
+                for (var i in animacao.sprites) {
+                    if (animacao.sprites[i] instanceof Ovni)
+                    animacao.excluirSprite(animacao.sprites[i]);
+                }
+            }
+        </script>
+    </body>
+</html>
